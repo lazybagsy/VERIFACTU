@@ -1,0 +1,77 @@
+OBJECT XMLport 50113 RC-Hash Test Data
+{
+  OBJECT-PROPERTIES
+  {
+    Date=22/10/25;
+    Time=12:00:00;
+    Modified=Yes;
+    Version List=RC-VERIFACTU;
+  }
+  PROPERTIES
+  {
+    CaptionML=ESP=Datos Test Hash;
+    Direction=Export;
+    DefaultFieldsValidation=No;
+    Format=Xml;
+    Encoding=UTF-8;
+  }
+  ELEMENTS
+  {
+    { [{9B6F8D1E-5F7A-4C2B-8E3D-1A2B3C4D5E6F}];  ;Root                ;Element ;Text     }
+
+    { [{1A2B3C4D-5E6F-7A8B-9C0D-1E2F3A4B5C6D}];1 ;HashTestData        ;Element ;Table   ;
+                                                  SourceTable=Table50138;
+                                                  MinOccurs=Zero }
+
+    { [{2B3C4D5E-6F7A-8B9C-0D1E-2F3A4B5C6D7E}];2 ;IDEmisorFactura     ;Element ;Field   ;
+                                                  DataType=Text;
+                                                  SourceField=RC-Hash Test Data::IDEmisorFactura }
+
+    { [{3C4D5E6F-7A8B-9C0D-1E2F-3A4B5C6D7E8F}];2 ;NumSerieFactura     ;Element ;Field   ;
+                                                  DataType=Text;
+                                                  SourceField=RC-Hash Test Data::NumSerieFactura }
+
+    { [{4D5E6F7A-8B9C-0D1E-2F3A-4B5C6D7E8F9A}];2 ;FechaExpedicionFactura;Element;Field  ;
+                                                  DataType=Date;
+                                                  SourceField=RC-Hash Test Data::FechaExpedicionFactura }
+
+    { [{5E6F7A8B-9C0D-1E2F-3A4B-5C6D7E8F9A0B}];2 ;TipoFactura         ;Element ;Field   ;
+                                                  DataType=Code;
+                                                  SourceField=RC-Hash Test Data::TipoFactura }
+
+    { [{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C}];2 ;CuotaTotal          ;Element ;Field   ;
+                                                  DataType=Decimal;
+                                                  SourceField=RC-Hash Test Data::CuotaTotal }
+
+    { [{7A8B9C0D-1E2F-3A4B-5C6D-7E8F9A0B1C2D}];2 ;ImporteTotal        ;Element ;Field   ;
+                                                  DataType=Decimal;
+                                                  SourceField=RC-Hash Test Data::ImporteTotal }
+
+    { [{8B9C0D1E-2F3A-4B5C-6D7E-8F9A0B1C2D3E}];2 ;Huella              ;Element ;Field   ;
+                                                  DataType=Text;
+                                                  SourceField=RC-Hash Test Data::Huella }
+
+    { [{9C0D1E2F-3A4B-5C6D-7E8F-9A0B1C2D3E4F}];2 ;FechaHoraHusoGenRegistro;Element;Field;
+                                                  DataType=DateTime;
+                                                  SourceField=RC-Hash Test Data::FechaHoraHusoGenRegistro }
+
+  }
+  EVENTS
+  {
+  }
+  REQUESTPAGE
+  {
+    PROPERTIES
+    {
+    }
+    CONTROLS
+    {
+    }
+  }
+  CODE
+  {
+
+    BEGIN
+    END.
+  }
+}

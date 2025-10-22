@@ -1,0 +1,156 @@
+OBJECT Page 50176 RC-Hash Test Data
+{
+  OBJECT-PROPERTIES
+  {
+    Date=22/10/25;
+    Time=12:00:00;
+    Modified=Yes;
+    Version List=RC-VERIFACTU;
+  }
+  PROPERTIES
+  {
+    CaptionML=ESP=Datos Test Hash;
+    SourceTable=Table50138;
+    PageType=List;
+    UsageCategory=Lists;
+    ActionList=ACTIONS
+    {
+      { 1       ;0   ;ActionContainer;
+                      ActionContainerType=ActionItems }
+      { 2       ;1   ;Action    ;
+                      CaptionML=ESP=Calcular Hash;
+                      Promoted=Yes;
+                      Image=CalculateHierarchy;
+                      PromotedCategory=Process;
+                      PromotedOnly=Yes;
+                      OnAction=BEGIN
+                                 GenerateHash;
+                               END;
+                                }
+      { 3       ;1   ;Action    ;
+                      CaptionML=ESP=Exportar XML;
+                      Promoted=Yes;
+                      Image=Export;
+                      PromotedCategory=Process;
+                      PromotedOnly=Yes;
+                      OnAction=VAR
+                                 HashTestData@1000000000 : Record 50138;
+                               BEGIN
+                                 HashTestData.RESET;
+                                 HashTestData.SETRANGE("Entry No.","Entry No.");
+                                 XMLPORT.RUN(50113,FALSE,FALSE,HashTestData);
+                               END;
+                                }
+    }
+  }
+  CONTROLS
+  {
+    { 1900000001;0;Container;
+                ContainerType=ContentArea }
+
+    { 50001;1  ;Group     ;
+                Name=General;
+                GroupType=Repeater }
+
+    { 50003;2  ;Field     ;
+                CaptionML=ESP=No movimiento;
+                ApplicationArea=#All;
+                SourceExpr="Entry No." }
+
+    { 50004;2  ;Field     ;
+                CaptionML=ESP=ID Emisor Factura;
+                ApplicationArea=#All;
+                SourceExpr=IDEmisorFactura }
+
+    { 50005;2  ;Field     ;
+                CaptionML=ESP=Num. Serie Factura;
+                ApplicationArea=#All;
+                SourceExpr=NumSerieFactura }
+
+    { 50006;2  ;Field     ;
+                CaptionML=ESP=Fecha Expedicion Factura;
+                ApplicationArea=#All;
+                SourceExpr=FechaExpedicionFactura }
+
+    { 50007;2  ;Field     ;
+                CaptionML=ESP=Tipo Factura;
+                ApplicationArea=#All;
+                SourceExpr=TipoFactura }
+
+    { 50008;2  ;Field     ;
+                CaptionML=ESP=Cuota Total;
+                ApplicationArea=#All;
+                SourceExpr=CuotaTotal }
+
+    { 50009;2  ;Field     ;
+                CaptionML=ESP=Importe Total;
+                ApplicationArea=#All;
+                SourceExpr=ImporteTotal }
+
+    { 50010;2  ;Field     ;
+                CaptionML=ESP=Huella;
+                ApplicationArea=#All;
+                SourceExpr=Huella;
+                Editable=False }
+
+    { 50011;2  ;Field     ;
+                CaptionML=ESP=Fecha Hora Huso Gen Registro;
+                ApplicationArea=#All;
+                SourceExpr=FechaHoraHusoGenRegistro }
+
+  }
+  CODE
+  {
+
+    LOCAL PROCEDURE GenerateHash@1000000000();
+    VAR
+      HashString@1000000000 : Text;
+    BEGIN
+      HashString := BuildHashString;
+      Huella := CalculateSHA256Hash(HashString);
+      MODIFY;
+    END;
+
+    LOCAL PROCEDURE BuildHashString@1000000001() HashString : Text;
+    BEGIN
+      HashString := 'IDEmisorFactura=' + IDEmisorFactura +
+                    '&NumSerieFactura=' + NumSerieFactura +
+                    '&FechaExpedicionFactura=' + FormatDate(FechaExpedicionFactura) +
+                    '&TipoFactura=' + TipoFactura +
+                    '&CuotaTotal=' + FormatDecimal(CuotaTotal) +
+                    '&ImporteTotal=' + FormatDecimal(ImporteTotal) +
+                    '&Huella=' +
+                    '&FechaHoraHusoGenRegistro=' + FormatDateTime(FechaHoraHusoGenRegistro);
+    END;
+
+    LOCAL PROCEDURE FormatDate@1000000002(Value@1000000000 : Date) : Text;
+    BEGIN
+      EXIT(FORMAT(Value,0,'<Day,2>-<Month,2>-<Year4>'));
+    END;
+
+    LOCAL PROCEDURE FormatDateTime@1000000003(Value@1000000000 : DateTime) : Text;
+    BEGIN
+      EXIT(FORMAT(Value,0,'<Year4>-<Month,2>-<Day,2>T<Hours24,2>:<Minutes,2>:<Seconds,2>+01:00'));
+    END;
+
+    LOCAL PROCEDURE FormatDecimal@1000000004(Value@1000000000 : Decimal) : Text;
+    VAR
+      DecimalString@1000000001 : Text;
+    BEGIN
+      DecimalString := FORMAT(Value,0,'<Precision,2:2><Standard Format,9>');
+      DecimalString := CONVERTSTR(DecimalString,',','.');
+      DecimalString := DELCHR(DecimalString,'=',' ');
+      EXIT(DecimalString);
+    END;
+
+    LOCAL PROCEDURE CalculateSHA256Hash@1000000005(InputString@1000000000 : Text) HashValue : Text;
+    VAR
+      CryptoMgmt@1000000001 : Codeunit 1266;
+    BEGIN
+      HashValue := CryptoMgmt.GenerateHash(InputString,2);
+    END;
+
+    BEGIN
+    END.
+  }
+}
