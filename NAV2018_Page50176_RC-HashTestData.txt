@@ -41,6 +41,22 @@ OBJECT Page 50176 RC-Hash Test Data
                                  XMLPORT.RUN(50113,FALSE,FALSE,HashTestData);
                                END;
                                 }
+      { 4       ;1   ;Action    ;
+                      CaptionML=ESP=Generar Codigo QR;
+                      Promoted=Yes;
+                      Image=SparkleFilled;
+                      PromotedCategory=Process;
+                      PromotedOnly=Yes;
+                      OnAction=VAR
+                                 QRCodeURL@1000000000 : Text;
+                                 QRImageURL@1000000001 : Text;
+                               BEGIN
+                                 QRCodeURL := BuildQRCodeURL;
+                                 QRImageURL := 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + EncodeParam(QRCodeURL);
+                                 MESSAGE('URL Validacion AEAT:\%1\\URL Imagen QR:\%2',QRCodeURL,QRImageURL);
+                                 HYPERLINK(QRImageURL);
+                               END;
+                                }
     }
   }
   CONTROLS
@@ -148,6 +164,66 @@ OBJECT Page 50176 RC-Hash Test Data
       CryptoMgmt@1000000001 : Codeunit 1266;
     BEGIN
       HashValue := CryptoMgmt.GenerateHash(InputString,2);
+    END;
+
+    LOCAL PROCEDURE BuildQRCodeURL@1000000006() : Text;
+    VAR
+      BaseURL@1000000000 : Text;
+      QRCodeString@1000000001 : Text;
+    BEGIN
+      BaseURL := 'https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQRNoVerifactu?';
+      QRCodeString := CodificarQR(
+        BaseURL,
+        'B16388340',
+        '12345678&G33',
+        '01-01-2024',
+        '241.4'
+      );
+      EXIT(QRCodeString);
+    END;
+
+    LOCAL PROCEDURE CodificarQR@1000000007(Prefijo@1000000000 : Text;NIF@1000000001 : Text;NumSerie@1000000002 : Text;Fecha@1000000003 : Text;Importe@1000000004 : Text) : Text;
+    VAR
+      EncodedNIF@1000000005 : Text;
+      EncodedNumSerie@1000000006 : Text;
+      EncodedFecha@1000000007 : Text;
+      EncodedImporte@1000000008 : Text;
+      Result@1000000009 : Text;
+    BEGIN
+      EncodedNIF := EncodeParam(NIF);
+      EncodedNumSerie := EncodeParam(NumSerie);
+      EncodedFecha := EncodeParam(Fecha);
+      EncodedImporte := EncodeParam(Importe);
+
+      Result := Prefijo + 'nif=' + EncodedNIF +
+                '&numserie=' + EncodedNumSerie +
+                '&fecha=' + EncodedFecha +
+                '&importe=' + EncodedImporte;
+
+      EXIT(Result);
+    END;
+
+    LOCAL PROCEDURE EncodeParam@1000000008(Param@1000000000 : Text) : Text;
+    VAR
+      EncodedText@1000000001 : Text;
+      i@1000000002 : Integer;
+      CurrentChar@1000000003 : Text[1];
+    BEGIN
+      EncodedText := '';
+      FOR i := 1 TO STRLEN(Param) DO BEGIN
+        CurrentChar := COPYSTR(Param,i,1);
+        CASE CurrentChar[1] OF
+          '&': EncodedText := EncodedText + '%26';
+          ' ': EncodedText := EncodedText + '%20';
+          '+': EncodedText := EncodedText + '%2B';
+          '=': EncodedText := EncodedText + '%3D';
+          '?': EncodedText := EncodedText + '%3F';
+          '/': EncodedText := EncodedText + '%2F';
+          ':': EncodedText := EncodedText + '%3A';
+          ELSE EncodedText := EncodedText + CurrentChar;
+        END;
+      END;
+      EXIT(EncodedText);
     END;
 
     BEGIN

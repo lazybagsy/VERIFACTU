@@ -1,0 +1,116 @@
+OBJECT Page 50177 RC-QR Code Display
+{
+  OBJECT-PROPERTIES
+  {
+    Date=22/10/25;
+    Time=12:00:00;
+    Modified=Yes;
+    Version List=RC-VERIFACTU;
+  }
+  PROPERTIES
+  {
+    CaptionML=[ENU=QR Code;
+               ESP=Codigo QR];
+    PageType=Card;
+    ActionList=ACTIONS
+    {
+      { 1       ;0   ;ActionContainer;
+                      ActionContainerType=ActionItems }
+      { 2       ;1   ;Action    ;
+                      CaptionML=[ENU=Open in Browser;
+                                 ESP=Abrir en Navegador];
+                      Promoted=Yes;
+                      Image=Web;
+                      PromotedCategory=Process;
+                      PromotedOnly=Yes;
+                      OnAction=BEGIN
+                                 HYPERLINK(QRCodeURL);
+                               END;
+                                }
+      { 3       ;1   ;Action    ;
+                      CaptionML=[ENU=Generate QR Image;
+                                 ESP=Generar Imagen QR];
+                      Promoted=Yes;
+                      Image=Picture;
+                      PromotedCategory=Process;
+                      PromotedOnly=Yes;
+                      OnAction=VAR
+                                 QRImageURL@1000000000 : Text;
+                               BEGIN
+                                 QRImageURL := 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + GetEncodedURL(QRCodeURL);
+                                 MESSAGE('QR Code Image URL:\%1',QRImageURL);
+                                 HYPERLINK(QRImageURL);
+                               END;
+                                }
+    }
+  }
+  CONTROLS
+  {
+    { 1900000001;0;Container;
+                ContainerType=ContentArea }
+
+    { 50001;1  ;Group     ;
+                Name=QRCodeGroup;
+                CaptionML=[ENU=QR Code Information;
+                           ESP=Informacion Codigo QR];
+                GroupType=Group }
+
+    { 50002;2  ;Field     ;
+                Name=QRCodeImage;
+                CaptionML=[ENU=QR Code Image;
+                           ESP=Imagen Codigo QR];
+                SourceExpr=QRCodeURL;
+                MultiLine=Yes;
+                Editable=False;
+                OnDrillDown=BEGIN
+                              HYPERLINK(QRCodeURL);
+                            END;
+                             }
+
+    { 50003;2  ;Field     ;
+                Name=URLDisplay;
+                CaptionML=[ENU=QR Code URL;
+                           ESP=URL Codigo QR];
+                SourceExpr=QRCodeURL;
+                MultiLine=Yes;
+                Editable=False }
+
+  }
+  CODE
+  {
+    VAR
+      QRCodeURL@1000000000 : Text;
+
+    PROCEDURE SetQRCodeURL@1000000001(NewURL@1000000000 : Text);
+    BEGIN
+      QRCodeURL := NewURL;
+    END;
+
+    LOCAL PROCEDURE GetEncodedURL@1000000002(URL@1000000000 : Text) : Text;
+    VAR
+      EncodedURL@1000000001 : Text;
+      i@1000000002 : Integer;
+      CurrentChar@1000000003 : Text[1];
+    BEGIN
+      EncodedURL := '';
+      FOR i := 1 TO STRLEN(URL) DO BEGIN
+        CurrentChar := COPYSTR(URL,i,1);
+        CASE CurrentChar[1] OF
+          '&': EncodedURL := EncodedURL + '%26';
+          ' ': EncodedURL := EncodedURL + '%20';
+          '+': EncodedURL := EncodedURL + '%2B';
+          '=': EncodedURL := EncodedURL + '%3D';
+          '?': EncodedURL := EncodedURL + '%3F';
+          '/': EncodedURL := EncodedURL + '%2F';
+          ':': EncodedURL := EncodedURL + '%3A';
+          ELSE EncodedURL := EncodedURL + CurrentChar;
+        END;
+      END;
+      EXIT(EncodedURL);
+    END;
+
+    BEGIN
+    END.
+  }
+}
+
