@@ -19,6 +19,25 @@ Convert the provided AL object(s) to CAL format compatible with Navision 2018. C
   - Convert AutoIncrement to CAL format
   - Set Editable=False for non-editable fields (use False, not No)
 
+* **Table Triggers:**
+  - **OnInsert, OnModify, OnDelete, and OnRename triggers MUST be declared in the PROPERTIES section, NOT in the CODE section**
+  - Table triggers are properties, not procedures
+  - Format: Place trigger code directly in PROPERTIES after DataCaptionFields
+  - Example:
+    ```
+    PROPERTIES
+    {
+      DataCaptionFields=Entry No.;
+      OnModify=VAR
+                 MyVar@1000000000 : Record 50138;
+               BEGIN
+                 // trigger code here
+               END;
+    }
+    ```
+  - Do NOT create OnInsert, OnModify, OnDelete, or OnRename as procedures in the CODE section
+  - Leave CODE section with only BEGIN/END if no other procedures exist
+
 * **Page Layouts:**
   - Respect the exact layout order from AL page
   - Convert page areas: ContentArea -> Container, repeater/group -> Group, fields -> Field
@@ -97,3 +116,4 @@ Convert the provided AL object(s) to CAL format compatible with Navision 2018. C
 - Use consistent control ID numbering (1000000000+)
 - Test that generated files can be imported without errors
 - Use True/False for boolean properties, not Yes/No
+- **Remember: Table triggers (OnInsert, OnModify, OnDelete, OnRename) go in PROPERTIES, not CODE**
