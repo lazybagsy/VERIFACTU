@@ -134,15 +134,34 @@ OBJECT Page 50176 RC-Hash Test Data
     END;
 
     LOCAL PROCEDURE BuildHashString@1000000001() HashString : Text;
+    VAR
+      PreviousRecord@1000000000 : Record 50138;
     BEGIN
-      HashString := 'IDEmisorFactura=' + IDEmisorFactura +
-                    '&NumSerieFactura=' + NumSerieFactura +
-                    '&FechaExpedicionFactura=' + FormatDate(FechaExpedicionFactura) +
-                    '&TipoFactura=' + TipoFactura +
-                    '&CuotaTotal=' + FormatDecimal(CuotaTotal) +
-                    '&ImporteTotal=' + FormatDecimal(ImporteTotal) +
-                    '&Huella=' +
-                    '&FechaHoraHusoGenRegistro=' + FormatDateTime(FechaHoraHusoGenRegistro);
+      // Check if there's a previous record with "Ult. huella utilizado" = true
+      PreviousRecord.RESET;
+      PreviousRecord.SETRANGE("Ult. huella utilizado",TRUE);
+
+      IF PreviousRecord.FINDFIRST THEN BEGIN
+        // Caso 2: Subsequent record - include previous hash in chain
+        HashString := 'IDEmisorFactura=' + IDEmisorFactura +
+                      '&NumSerieFactura=' + NumSerieFactura +
+                      '&FechaExpedicionFactura=' + FormatDate(FechaExpedicionFactura) +
+                      '&TipoFactura=' + TipoFactura +
+                      '&CuotaTotal=' + FormatDecimal(CuotaTotal) +
+                      '&ImporteTotal=' + FormatDecimal(ImporteTotal) +
+                      '&Huella=' + PreviousRecord.Huella +
+                      '&FechaHoraHusoGenRegistro=' + FormatDateTime(FechaHoraHusoGenRegistro);
+      END ELSE BEGIN
+        // Caso 1: First record - empty Huella parameter
+        HashString := 'IDEmisorFactura=' + IDEmisorFactura +
+                      '&NumSerieFactura=' + NumSerieFactura +
+                      '&FechaExpedicionFactura=' + FormatDate(FechaExpedicionFactura) +
+                      '&TipoFactura=' + TipoFactura +
+                      '&CuotaTotal=' + FormatDecimal(CuotaTotal) +
+                      '&ImporteTotal=' + FormatDecimal(ImporteTotal) +
+                      '&Huella=' +
+                      '&FechaHoraHusoGenRegistro=' + FormatDateTime(FechaHoraHusoGenRegistro);
+      END;
     END;
 
     LOCAL PROCEDURE FormatDate@1000000002(Value@1000000000 : Date) : Text;

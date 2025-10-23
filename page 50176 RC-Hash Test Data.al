@@ -125,15 +125,34 @@ page 50176 "RC-Hash Test Data"
     end;
 
     local procedure BuildHashString() HashString: Text
+    var
+        PreviousRecord: Record "RC-Hash Test Data";
     begin
-        HashString := 'IDEmisorFactura=' + Rec.IDEmisorFactura +
-                      '&NumSerieFactura=' + Rec.NumSerieFactura +
-                      '&FechaExpedicionFactura=' + FormatDate(Rec.FechaExpedicionFactura) +
-                      '&TipoFactura=' + Rec.TipoFactura +
-                      '&CuotaTotal=' + FormatDecimal(Rec.CuotaTotal) +
-                      '&ImporteTotal=' + FormatDecimal(Rec.ImporteTotal) +
-                      '&Huella=' +
-                      '&FechaHoraHusoGenRegistro=' + FormatDateTime(Rec.FechaHoraHusoGenRegistro);
+        // Check if there's a previous record with "Ult. huella utilizado" = true
+        PreviousRecord.Reset();
+        PreviousRecord.SetRange("Ult. huella utilizado", true);
+
+        if PreviousRecord.FindFirst() then begin
+            // Caso 2: Subsequent record - include previous hash in chain
+            HashString := 'IDEmisorFactura=' + Rec.IDEmisorFactura +
+                          '&NumSerieFactura=' + Rec.NumSerieFactura +
+                          '&FechaExpedicionFactura=' + FormatDate(Rec.FechaExpedicionFactura) +
+                          '&TipoFactura=' + Rec.TipoFactura +
+                          '&CuotaTotal=' + FormatDecimal(Rec.CuotaTotal) +
+                          '&ImporteTotal=' + FormatDecimal(Rec.ImporteTotal) +
+                          '&Huella=' + PreviousRecord.Huella +
+                          '&FechaHoraHusoGenRegistro=' + FormatDateTime(Rec.FechaHoraHusoGenRegistro);
+        end else begin
+            // Caso 1: First record - empty Huella parameter
+            HashString := 'IDEmisorFactura=' + Rec.IDEmisorFactura +
+                          '&NumSerieFactura=' + Rec.NumSerieFactura +
+                          '&FechaExpedicionFactura=' + FormatDate(Rec.FechaExpedicionFactura) +
+                          '&TipoFactura=' + Rec.TipoFactura +
+                          '&CuotaTotal=' + FormatDecimal(Rec.CuotaTotal) +
+                          '&ImporteTotal=' + FormatDecimal(Rec.ImporteTotal) +
+                          '&Huella=' +
+                          '&FechaHoraHusoGenRegistro=' + FormatDateTime(Rec.FechaHoraHusoGenRegistro);
+        end;
     end;
 
     local procedure FormatDate(Value: Date): Text
