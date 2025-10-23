@@ -114,6 +114,12 @@ OBJECT Page 50176 RC-Hash Test Data
                 ApplicationArea=#All;
                 SourceExpr=FechaHoraHusoGenRegistro }
 
+    { 50012;2  ;Field     ;
+                CaptionML=ESP=Ult. huella utilizado;
+                ApplicationArea=#All;
+                SourceExpr="Ult. huella utilizado";
+                Editable=False }
+
   }
   CODE
   {
@@ -124,7 +130,7 @@ OBJECT Page 50176 RC-Hash Test Data
     BEGIN
       HashString := BuildHashString;
       Huella := CalculateSHA256Hash(HashString);
-      MODIFY;
+      MODIFY(TRUE);
     END;
 
     LOCAL PROCEDURE BuildHashString@1000000001() HashString : Text;

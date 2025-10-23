@@ -47,6 +47,11 @@ page 50176 "RC-Hash Test Data"
                 {
                     ApplicationArea = All;
                 }
+                field("Ult. huella utilizado"; Rec."Ult. huella utilizado")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                }
             }
         }
     }
@@ -116,7 +121,7 @@ page 50176 "RC-Hash Test Data"
     begin
         HashString := BuildHashString();
         Rec.Huella := CalculateSHA256Hash(HashString);
-        Rec.Modify();
+        Rec.Modify(true);
     end;
 
     local procedure BuildHashString() HashString: Text

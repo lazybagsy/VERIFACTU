@@ -10,6 +10,22 @@ OBJECT Table 50138 RC-Hash Test Data
   PROPERTIES
   {
     DataCaptionFields=Entry No.;
+    OnModify=VAR
+               PreviousRecord@1000000000 : Record 50138;
+             BEGIN
+               IF (Huella <> '') AND (NOT "Ult. huella utilizado") THEN BEGIN
+                 PreviousRecord.RESET;
+                 PreviousRecord.SETFILTER("Entry No.",'<>%1',"Entry No.");
+                 PreviousRecord.SETRANGE("Ult. huella utilizado",TRUE);
+                 IF PreviousRecord.FINDFIRST THEN BEGIN
+                   PreviousRecord."Ult. huella utilizado" := FALSE;
+                   PreviousRecord.MODIFY;
+                 END;
+
+                 "Ult. huella utilizado" := TRUE;
+               END;
+             END;
+
   }
   FIELDS
   {
@@ -22,6 +38,7 @@ OBJECT Table 50138 RC-Hash Test Data
     { 7   ;   ;ImporteTotal        ;Decimal       ;DecimalPlaces=2:2 }
     { 8   ;   ;Huella              ;Text100       ;Editable=No }
     { 9   ;   ;FechaHoraHusoGenRegistro;DateTime   }
+    { 10  ;   ;Ult. huella utilizado;Boolean      ;Editable=No }
   }
   KEYS
   {
