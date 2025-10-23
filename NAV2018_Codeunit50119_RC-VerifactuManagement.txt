@@ -1,0 +1,88 @@
+OBJECT Codeunit 50119 RC-Verifactu Management
+{
+  OBJECT-PROPERTIES
+  {
+    Date=22/10/25;
+    Time=12:00:00;
+    Modified=Yes;
+    Version List=RC-VERIFACTU;
+  }
+  PROPERTIES
+  {
+    SingleInstance=No;
+  }
+  CODE
+  {
+
+    [EventSubscriber(Codeunit,80,OnAfterSalesInvHeaderInsert)]
+    LOCAL PROCEDURE OnAfterSalesInvHeaderInsert@1000000000(VAR SalesInvHeader@1000000000 : Record 112;SalesHeader@1000000001 : Record 36);
+    BEGIN
+      IF SalesInvHeader.ISTEMPORARY THEN
+        EXIT;
+
+      GenerateVerifactuHash(SalesInvHeader);
+    END;
+
+    LOCAL PROCEDURE GenerateVerifactuHash@1000000001(VAR SalesInvHeader@1000000000 : Record 112);
+    VAR
+      HashString@1000000001 : Text;
+    BEGIN
+      HashString := BuildHashString(SalesInvHeader);
+      SalesInvHeader."RC-Verifactu Hash" := CalculateSHA256Hash(HashString);
+      SalesInvHeader.MODIFY;
+    END;
+
+    LOCAL PROCEDURE BuildHashString@1000000002(SalesInvHeader@1000000000 : Record 112) HashString : Text;
+    VAR
+      CompanyInfo@1000000001 : Record 79;
+      CuotaTotal@1000000002 : Decimal;
+      TipoFactura@1000000003 : Text;
+    BEGIN
+      CompanyInfo.GET;
+
+      CuotaTotal := SalesInvHeader."Amount Including VAT" - SalesInvHeader.Amount;
+
+      TipoFactura := 'F1';
+
+      HashString := 'IDEmisorFactura=' + CompanyInfo."VAT Registration No." +
+                    '&NumSerieFactura=' + SalesInvHeader."No." +
+                    '&FechaExpedicionFactura=' + FormatDate(SalesInvHeader."Posting Date") +
+                    '&TipoFactura=' + TipoFactura +
+                    '&CuotaTotal=' + FormatDecimal(CuotaTotal) +
+                    '&ImporteTotal=' + FormatDecimal(SalesInvHeader."Amount Including VAT") +
+                    '&Huella=' +
+                    '&FechaHoraHusoGenRegistro=' + FormatDateTime(CURRENTDATETIME);
+    END;
+
+    LOCAL PROCEDURE FormatDate@1000000003(Value@1000000000 : Date) : Text;
+    BEGIN
+      EXIT(FORMAT(Value,0,'<Day,2>-<Month,2>-<Year4>'));
+    END;
+
+    LOCAL PROCEDURE FormatDateTime@1000000004(Value@1000000000 : DateTime) : Text;
+    BEGIN
+      EXIT(FORMAT(Value,0,'<Year4>-<Month,2>-<Day,2>T<Hours24,2>:<Minutes,2>:<Seconds,2>+01:00'));
+    END;
+
+    LOCAL PROCEDURE FormatDecimal@1000000005(Value@1000000000 : Decimal) : Text;
+    VAR
+      DecimalString@1000000001 : Text;
+    BEGIN
+      DecimalString := FORMAT(Value,0,'<Precision,2:2><Standard Format,9>');
+      DecimalString := CONVERTSTR(DecimalString,',','.');
+      DecimalString := DELCHR(DecimalString,'=',' ');
+      EXIT(DecimalString);
+    END;
+
+    LOCAL PROCEDURE CalculateSHA256Hash@1000000006(InputString@1000000000 : Text) HashValue : Text;
+    VAR
+      CryptoMgmt@1000000001 : Codeunit 1266;
+    BEGIN
+      HashValue := CryptoMgmt.GenerateHash(InputString,2);
+    END;
+
+    BEGIN
+    END.
+  }
+}
+
