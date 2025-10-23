@@ -40,6 +40,9 @@ Convert the provided AL object(s) to CAL format compatible with Navision 2018. C
   - Convert string concatenation and formatting functions
   - Handle Codeunit references with proper object numbers
   - Convert TempBlob usage to Record 99008535 for NAV 2018
+  - **EventSubscriber declarations MUST include Object Type:** Use `[EventSubscriber(Codeunit,80,OnAfterSalesInvHeaderInsert)]` NOT `[EventSubscriber(80,OnAfterSalesInvHeaderInsert)]`
+  - EventSubscriber format: `[EventSubscriber(ObjectType,ObjectID,EventName)]` where ObjectType is Codeunit, Table, Page, etc.
+  - Example: `[EventSubscriber(Codeunit,80,OnAfterSalesInvHeaderInsert)]` for Sales-Post codeunit
 
 * **Keys and Field Groups:**
   - Convert key definitions to CAL format
