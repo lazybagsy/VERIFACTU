@@ -18,15 +18,27 @@ OBJECT Codeunit 50119 RC-Verifactu Management
     LOCAL PROCEDURE OnAfterPostSalesDoc@1000000000(VAR SalesHeader@1000000000 : Record 36;VAR GenJnlPostLine@1000000001 : Codeunit 12;SalesShptHdrNo@1000000002 : Code[20];RetRcpHdrNo@1000000003 : Code[20];SalesInvHdrNo@1000000004 : Code[20];SalesCrMemoHdrNo@1000000005 : Code[20];CommitIsSuppressed@1000000006 : Boolean);
     VAR
       SalesInvHeader@1000000007 : Record 112;
+      SalesCrMemoHeader@1000000008 : Record 114;
     BEGIN
-      IF SalesInvHdrNo = '' THEN
+      IF (SalesInvHdrNo = '') AND (SalesCrMemoHdrNo = '') THEN
         EXIT;
 
-      IF SalesInvHeader.GET(SalesInvHdrNo) THEN
-        GenerateVerifactuHash(SalesInvHeader);
+      IF (SalesInvHdrNo <> '') THEN BEGIN
+        IF SalesInvHeader.GET(SalesInvHdrNo) THEN
+          GenerateVerifactuHash(SalesInvHeader,FALSE);
+      END;
+
+      IF SalesCrMemoHdrNo <> '' THEN BEGIN
+        IF SalesCrMemoHeader.GET(SalesCrMemoHdrNo) THEN BEGIN
+          IF (SalesCrMemoHeader."Corrected Invoice No." <> '') THEN BEGIN
+            IF SalesInvHeader.GET(SalesCrMemoHeader."Corrected Invoice No.") THEN
+              GenerateVerifactuHash(SalesInvHeader,TRUE);
+          END;
+        END;
+      END;
     END;
 
-    LOCAL PROCEDURE GenerateVerifactuHash@1000000001(VAR SalesInvHeader@1000000000 : Record 112);
+    LOCAL PROCEDURE GenerateVerifactuHash@1000000001(VAR SalesInvHeader@1000000000 : Record 112;CorrectedInvoice@1000000009 : Boolean);
     VAR
       HashString@1000000001 : Text;
       HashTestData@1000000002 : Record 50138;
@@ -38,7 +50,7 @@ OBJECT Codeunit 50119 RC-Verifactu Management
       // Create timestamp once to use consistently
       Timestamp := CURRENTDATETIME;
 
-      HashString := BuildHashString(SalesInvHeader,Timestamp);
+      HashString := BuildHashString(SalesInvHeader,Timestamp,CorrectedInvoice);
       SalesInvHeader."RC-Verifactu Hash" := CalculateSHA256Hash(HashString);
       SalesInvHeader."RC-Verifactu Timestamp" := Timestamp;
       SalesInvHeader.MODIFY;
@@ -63,7 +75,10 @@ OBJECT Codeunit 50119 RC-Verifactu Management
       HashTestData.IDEmisorFactura := CompanyInfo."VAT Registration No.";
       HashTestData.NumSerieFactura := SalesInvHeader."No.";
       HashTestData.FechaExpedicionFactura := SalesInvHeader."Posting Date";
-      HashTestData.TipoFactura := 'F1';
+      IF CorrectedInvoice THEN
+        HashTestData.TipoFactura := 'R1'
+      ELSE
+        HashTestData.TipoFactura := 'F1';
       HashTestData.CuotaTotal := CuotaTotal;
       HashTestData.ImporteTotal := SalesInvHeader."Amount Including VAT";
       HashTestData.Huella := SalesInvHeader."RC-Verifactu Hash";
@@ -72,7 +87,7 @@ OBJECT Codeunit 50119 RC-Verifactu Management
       HashTestData.INSERT(TRUE);
     END;
 
-    LOCAL PROCEDURE BuildHashString@1000000002(SalesInvHeader@1000000000 : Record 112;Timestamp@1000000001 : DateTime) HashString : Text;
+    LOCAL PROCEDURE BuildHashString@1000000002(SalesInvHeader@1000000000 : Record 112;Timestamp@1000000001 : DateTime;CorrectedInvoice@1000000010 : Boolean) HashString : Text;
     VAR
       CompanyInfo@1000000002 : Record 79;
       PreviousInvoice@1000000003 : Record 112;
@@ -86,35 +101,49 @@ OBJECT Codeunit 50119 RC-Verifactu Management
 
       CuotaTotal := SalesInvHeader."Amount Including VAT" - SalesInvHeader.Amount;
 
-      TipoFactura := 'F1';
-
-      // Check if there's a previous invoice with a hash (for hash chaining)
-      // Find previous invoice based on No. Series ordering
-      PreviousInvoice.RESET;
-      PreviousInvoice.SETCURRENTKEY("No. Series","Posting Date");
-      PreviousInvoice.SETRANGE("No. Series",SalesInvHeader."No. Series");
-      PreviousInvoice.SETFILTER("RC-Verifactu Hash",'<>%1','');
-      PreviousInvoice.SETFILTER("Posting Date",'..%1',SalesInvHeader."Posting Date");
-      PreviousInvoice.SETFILTER("No.",'<%1',SalesInvHeader."No.");
-
-      IF PreviousInvoice.FINDLAST THEN
-        HashString := 'IDEmisorFactura=' + CompanyInfo."VAT Registration No." +
-                      '&NumSerieFactura=' + SalesInvHeader."No." +
-                      '&FechaExpedicionFactura=' + FormatDate(SalesInvHeader."Posting Date") +
-                      '&TipoFactura=' + TipoFactura +
-                      '&CuotaTotal=' + FormatDecimal(CuotaTotal) +
-                      '&ImporteTotal=' + FormatDecimal(SalesInvHeader."Amount Including VAT") +
-                      '&Huella=' + PreviousInvoice."RC-Verifactu Hash" +
-                      '&FechaHoraHusoGenRegistro=' + FormatDateTime(Timestamp)
+      // Set TipoFactura based on document type
+      IF CorrectedInvoice THEN
+        TipoFactura := 'R1' // Corrected invoice
       ELSE
-        HashString := 'IDEmisorFactura=' + CompanyInfo."VAT Registration No." +
-                      '&NumSerieFactura=' + SalesInvHeader."No." +
-                      '&FechaExpedicionFactura=' + FormatDate(SalesInvHeader."Posting Date") +
-                      '&TipoFactura=' + TipoFactura +
-                      '&CuotaTotal=' + FormatDecimal(CuotaTotal) +
-                      '&ImporteTotal=' + FormatDecimal(SalesInvHeader."Amount Including VAT") +
-                      '&Huella=' +
+        TipoFactura := 'F1'; // Default to standard invoice
+
+      // Only check for previous invoice hash chaining if it's not a corrected invoice
+      IF NOT CorrectedInvoice THEN BEGIN
+        // Check if there's a previous invoice with a hash (for hash chaining)
+        // Find previous invoice based on No. Series ordering
+        PreviousInvoice.RESET;
+        PreviousInvoice.SETCURRENTKEY("No. Series","Posting Date");
+        PreviousInvoice.SETRANGE("No. Series",SalesInvHeader."No. Series");
+        PreviousInvoice.SETFILTER("RC-Verifactu Hash",'<>%1','');
+        PreviousInvoice.SETFILTER("Posting Date",'..%1',SalesInvHeader."Posting Date");
+        PreviousInvoice.SETFILTER("No.",'<%1',SalesInvHeader."No.");
+
+        IF PreviousInvoice.FINDLAST THEN
+          HashString := 'IDEmisorFactura=' + CompanyInfo."VAT Registration No." +
+                        '&NumSerieFactura=' + SalesInvHeader."No." +
+                        '&FechaExpedicionFactura=' + FormatDate(SalesInvHeader."Posting Date") +
+                        '&TipoFactura=' + TipoFactura +
+                        '&CuotaTotal=' + FormatDecimal(CuotaTotal) +
+                        '&ImporteTotal=' + FormatDecimal(SalesInvHeader."Amount Including VAT") +
+                        '&Huella=' + PreviousInvoice."RC-Verifactu Hash" +
+                        '&FechaHoraHusoGenRegistro=' + FormatDateTime(Timestamp)
+        ELSE
+          HashString := 'IDEmisorFactura=' + CompanyInfo."VAT Registration No." +
+                        '&NumSerieFactura=' + SalesInvHeader."No." +
+                        '&FechaExpedicionFactura=' + FormatDate(SalesInvHeader."Posting Date") +
+                        '&TipoFactura=' + TipoFactura +
+                        '&CuotaTotal=' + FormatDecimal(CuotaTotal) +
+                        '&ImporteTotal=' + FormatDecimal(SalesInvHeader."Amount Including VAT") +
+                        '&Huella=' +
+                        '&FechaHoraHusoGenRegistro=' + FormatDateTime(Timestamp);
+      END ELSE BEGIN
+        // For corrected invoices, use current invoice hash
+        HashString := '&IDEmisorFacturaAnulada=' + CompanyInfo."VAT Registration No." +
+                      '&NumSerieFacturaAnulada=' + SalesInvHeader."No." +
+                      '&FechaExpedicionFacturaAnulada=' + FormatDate(SalesInvHeader."Posting Date") +
+                      '&Huella=' + SalesInvHeader."RC-Verifactu Hash" +
                       '&FechaHoraHusoGenRegistro=' + FormatDateTime(Timestamp);
+      END;
     END;
 
     LOCAL PROCEDURE FormatDate@1000000003(Value@1000000000 : Date) : Text;
