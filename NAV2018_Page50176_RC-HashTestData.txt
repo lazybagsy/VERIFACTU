@@ -2,14 +2,18 @@ OBJECT Page 50176 RC-Hash Test Data
 {
   OBJECT-PROPERTIES
   {
-    Date=22/10/25;
-    Time=12:00:00;
+    Date=24/10/25;
+    Time=15:58:10;
     Modified=Yes;
     Version List=RC-VERIFACTU;
   }
   PROPERTIES
   {
-    CaptionML=ESP=Datos Test Hash;
+    Editable=No;
+    CaptionML=ESP=Movs. reg. facturacion VERIFACTU;
+    InsertAllowed=No;
+    DeleteAllowed=No;
+    ModifyAllowed=No;
     SourceTable=Table50138;
     PageType=List;
     UsageCategory=Lists;
@@ -20,6 +24,7 @@ OBJECT Page 50176 RC-Hash Test Data
       { 2       ;1   ;Action    ;
                       CaptionML=ESP=Calcular Hash;
                       Promoted=Yes;
+                      Visible=False;
                       Image=CalculateHierarchy;
                       PromotedCategory=Process;
                       PromotedOnly=Yes;
@@ -199,10 +204,10 @@ OBJECT Page 50176 RC-Hash Test Data
       BaseURL := 'https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQRNoVerifactu?';
       QRCodeString := CodificarQR(
         BaseURL,
-        'B16388340',
-        '12345678&G33',
-        '01-01-2024',
-        '241.4'
+        IDEmisorFactura,
+        NumSerieFactura,
+        FORMAT(FechaExpedicionFactura,0,'<Day,2>-<Month,2>-<Year4>'),
+        FORMAT(ImporteTotal,0,'<Precision,2:2><Standard Format,9>')
       );
       EXIT(QRCodeString);
     END;

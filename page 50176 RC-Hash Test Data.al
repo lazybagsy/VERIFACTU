@@ -3,7 +3,12 @@ page 50176 "RC-Hash Test Data"
     PageType = List;
     ApplicationArea = All;
     UsageCategory = Lists;
+    Editable = false;
+    DeleteAllowed = false;
+    InsertAllowed = false;
+    ModifyAllowed = false;
     SourceTable = "RC-Hash Test Data";
+    Caption = 'Movs. reg. facturación verifactu';
 
     layout
     {
@@ -67,6 +72,7 @@ page 50176 "RC-Hash Test Data"
                 Image = CalculateHierarchy;
                 Promoted = true;
                 PromotedCategory = Process;
+                Visible = false;
 
                 trigger OnAction()
                 begin
@@ -213,20 +219,20 @@ page 50176 "RC-Hash Test Data"
         BaseURL := 'https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQRNoVerifactu?';
 
         // Build the QR code string with parameters
-        /* QRCodeString := CodificarQR(
+        QRCodeString := CodificarQR(
             BaseURL,
             Rec.IDEmisorFactura,
             Rec.NumSerieFactura,
             Format(Rec.FechaExpedicionFactura, 0, '<Day,2>-<Month,2>-<Year4>'),
             Format(Rec.ImporteTotal, 0, '<Precision,2:2><Standard Format,9>')
-        ); */
-        QRCodeString := CodificarQR(
+        );
+        /* QRCodeString := CodificarQR(
             BaseURL,
             'B16388340',
             '12345678&G33',
             '01-01-2024',
             '241.4'
-        );
+        ); */
 
         exit(QRCodeString);
     end;
