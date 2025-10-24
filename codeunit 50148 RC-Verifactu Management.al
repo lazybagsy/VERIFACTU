@@ -1,31 +1,75 @@
 codeunit 50148 "RC-Verifactu Management"
 {
-    [EventSubscriber(ObjectType::Codeunit, Codeunit::"Sales-Post", 'OnAfterSalesInvHeaderInsert', '', false, false)]
-    local procedure OnAfterSalesInvHeaderInsert(var SalesInvHeader: Record "Sales Invoice Header"; SalesHeader: Record "Sales Header")
+    [EventSubscriber(ObjectType::Codeunit, Codeunit::"Sales-Post", 'OnAfterPostSalesDoc', '', false, false)]
+    local procedure OnAfterPostSalesDoc(var SalesHeader: Record "Sales Header"; var GenJnlPostLine: Codeunit "Gen. Jnl.-Post Line"; SalesShptHdrNo: Code[20]; RetRcpHdrNo: Code[20]; SalesInvHdrNo: Code[20]; SalesCrMemoHdrNo: Code[20]; CommitIsSuppressed: Boolean)
+    var
+        SalesInvHeader: Record "Sales Invoice Header";
     begin
-        if SalesInvHeader.IsTemporary then
+        if SalesInvHdrNo = '' then
             exit;
 
-        GenerateVerifactuHash(SalesInvHeader);
+        if SalesInvHeader.Get(SalesInvHdrNo) then
+            GenerateVerifactuHash(SalesInvHeader);
     end;
 
     local procedure GenerateVerifactuHash(var SalesInvHeader: Record "Sales Invoice Header")
     var
         HashString: Text;
+        HashTestData: Record "RC-Hash Test Data";
+        PreviousHashTestData: Record "RC-Hash Test Data";
+        CompanyInfo: Record "Company Information";
+        CuotaTotal: Decimal;
+        Timestamp: DateTime;
     begin
-        HashString := BuildHashString(SalesInvHeader);
+        // Create timestamp once to use consistently
+        Timestamp := CurrentDateTime;
+
+        HashString := BuildHashString(SalesInvHeader, Timestamp);
         SalesInvHeader."RC-Verifactu Hash" := CalculateSHA256Hash(HashString);
+        SalesInvHeader."RC-Verifactu Timestamp" := Timestamp;
         SalesInvHeader.Modify();
+
+        // Also update table 50138 with the invoice data
+        CompanyInfo.Get();
+
+        // Calculate CalcFields for Amount and Amount Including VAT
+        SalesInvHeader.CalcFields(Amount, "Amount Including VAT");
+        CuotaTotal := SalesInvHeader."Amount Including VAT" - SalesInvHeader.Amount;
+
+        // First, deactivate any previous record with the boolean flag set
+        PreviousHashTestData.Reset();
+        PreviousHashTestData.SetRange("Ult. huella utilizado", true);
+        if PreviousHashTestData.FindFirst() then begin
+            PreviousHashTestData."Ult. huella utilizado" := false;
+            PreviousHashTestData.Modify(true);
+        end;
+
+        // Now insert the new record with a clean variable
+        HashTestData.Init();
+        HashTestData."IDEmisorFactura" := CompanyInfo."VAT Registration No.";
+        HashTestData."NumSerieFactura" := SalesInvHeader."No.";
+        HashTestData."FechaExpedicionFactura" := SalesInvHeader."Posting Date";
+        HashTestData."TipoFactura" := 'F1';
+        HashTestData."CuotaTotal" := CuotaTotal;
+        HashTestData."ImporteTotal" := SalesInvHeader."Amount Including VAT";
+        HashTestData."Huella" := SalesInvHeader."RC-Verifactu Hash";
+        HashTestData."FechaHoraHusoGenRegistro" := Timestamp;
+        HashTestData."Ult. huella utilizado" := true;  // Set to true on insert
+        HashTestData.Insert(true);
     end;
 
     // Add your BuildHashString and CalculateSHA256Hash procedures here
-    local procedure BuildHashString(SalesInvHeader: Record "Sales Invoice Header") HashString: Text
+    local procedure BuildHashString(SalesInvHeader: Record "Sales Invoice Header"; Timestamp: DateTime) HashString: Text
     var
         CompanyInfo: Record "Company Information";
+        PreviousInvoice: Record "Sales Invoice Header";
         CuotaTotal: Decimal;
         TipoFactura: Text;
     begin
         CompanyInfo.Get();
+
+        // Calculate CalcFields for Amount and Amount Including VAT
+        SalesInvHeader.CalcFields(Amount, "Amount Including VAT");
 
         // Calculate VAT amount (CuotaTotal = Amount Including VAT - Amount)
         CuotaTotal := SalesInvHeader."Amount Including VAT" - SalesInvHeader.Amount;
@@ -33,14 +77,33 @@ codeunit 50148 "RC-Verifactu Management"
         // Set TipoFactura based on document type
         TipoFactura := 'F1'; // Default to standard invoice
 
-        HashString := 'IDEmisorFactura=' + CompanyInfo."VAT Registration No." +
-                      '&NumSerieFactura=' + SalesInvHeader."No." +
-                      '&FechaExpedicionFactura=' + FormatDate(SalesInvHeader."Posting Date") +
-                      '&TipoFactura=' + TipoFactura +
-                      '&CuotaTotal=' + FormatDecimal(CuotaTotal) +
-                      '&ImporteTotal=' + FormatDecimal(SalesInvHeader."Amount Including VAT") +
-                      '&Huella=' +
-                      '&FechaHoraHusoGenRegistro=' + FormatDateTime(CurrentDateTime);
+        // Check if there's a previous invoice with a hash (for hash chaining)
+        // Find previous invoice based on No. Series ordering
+        PreviousInvoice.Reset();
+        PreviousInvoice.SetCurrentKey("No. Series", "Posting Date");
+        PreviousInvoice.SetRange("No. Series", SalesInvHeader."No. Series");
+        PreviousInvoice.SetFilter("RC-Verifactu Hash", '<>%1', '');
+        PreviousInvoice.SetFilter("Posting Date", '..%1', SalesInvHeader."Posting Date");
+        PreviousInvoice.SetFilter("No.", '<%1', SalesInvHeader."No.");
+
+        if PreviousInvoice.FindLast() then
+            HashString := 'IDEmisorFactura=' + CompanyInfo."VAT Registration No." +
+                          '&NumSerieFactura=' + SalesInvHeader."No." +
+                          '&FechaExpedicionFactura=' + FormatDate(SalesInvHeader."Posting Date") +
+                          '&TipoFactura=' + TipoFactura +
+                          '&CuotaTotal=' + FormatDecimal(CuotaTotal) +
+                          '&ImporteTotal=' + FormatDecimal(SalesInvHeader."Amount Including VAT") +
+                          '&Huella=' + PreviousInvoice."RC-Verifactu Hash" +
+                          '&FechaHoraHusoGenRegistro=' + FormatDateTime(Timestamp)
+        else
+            HashString := 'IDEmisorFactura=' + CompanyInfo."VAT Registration No." +
+                          '&NumSerieFactura=' + SalesInvHeader."No." +
+                          '&FechaExpedicionFactura=' + FormatDate(SalesInvHeader."Posting Date") +
+                          '&TipoFactura=' + TipoFactura +
+                          '&CuotaTotal=' + FormatDecimal(CuotaTotal) +
+                          '&ImporteTotal=' + FormatDecimal(SalesInvHeader."Amount Including VAT") +
+                          '&Huella=' +
+                          '&FechaHoraHusoGenRegistro=' + FormatDateTime(Timestamp);
     end;
 
     local procedure FormatDate(Value: Date): Text
