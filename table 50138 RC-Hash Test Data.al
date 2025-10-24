@@ -62,27 +62,11 @@ table 50138 "RC-Hash Test Data"
 
     trigger OnInsert()
     begin
-        // Do nothing on insert - wait for hash to be generated
-        // The boolean flag will be set in OnModify when the hash is added
+
     end;
 
     trigger OnModify()
-    var
-        PreviousRecord: Record "RC-Hash Test Data";
     begin
-        // When a hash is being set and the flag is not yet true
-        if (Rec."Huella" <> '') and (not Rec."Ult. huella utilizado") then begin
-            // Find any other record with the flag set to true
-            PreviousRecord.Reset();
-            PreviousRecord.SetFilter("Entry No.", '<>%1', Rec."Entry No.");
-            PreviousRecord.SetRange("Ult. huella utilizado", true);
-            if PreviousRecord.FindFirst() then begin
-                PreviousRecord."Ult. huella utilizado" := false;
-                PreviousRecord.Modify();
-            end;
 
-            // Always set this record's flag to true when hash exists
-            Rec."Ult. huella utilizado" := true;
-        end;
     end;
 }
