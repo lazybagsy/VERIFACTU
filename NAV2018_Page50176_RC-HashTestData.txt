@@ -62,6 +62,23 @@ OBJECT Page 50176 RC-Hash Test Data
                                  HYPERLINK(QRImageURL);
                                END;
                                 }
+      { 5       ;1   ;Action    ;
+                      CaptionML=ESP=Exportar XML Firmado Verifactu;
+                      Promoted=Yes;
+                      Image=ExportFile;
+                      PromotedCategory=Process;
+                      PromotedOnly=Yes;
+                      OnAction=VAR
+                                 SalesInvHeader@1000000000 : Record 112;
+                                 VerifactuMgmt@1000000001 : Codeunit 50119;
+                               BEGIN
+                                 // Find the corresponding Sales Invoice Header
+                                 IF SalesInvHeader.GET(NumSerieFactura) THEN
+                                   VerifactuMgmt.ExportSignedVerifactuXML(SalesInvHeader)
+                                 ELSE
+                                   MESSAGE('Sales Invoice %1 not found.',NumSerieFactura);
+                               END;
+                                }
     }
   }
   CONTROLS

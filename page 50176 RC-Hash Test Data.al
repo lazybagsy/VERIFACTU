@@ -116,6 +116,26 @@ page 50176 "RC-Hash Test Data"
                     QRCodeDisplay.RunModal();
                 end;
             }
+            action(ExportSignedXML)
+            {
+                ApplicationArea = All;
+                Caption = 'Export Signed Verifactu XML';
+                Image = ExportFile;
+                Promoted = true;
+                PromotedCategory = Process;
+
+                trigger OnAction()
+                var
+                    SalesInvHeader: Record "Sales Invoice Header";
+                    VerifactuMgmt: Codeunit "RC-Verifactu Management";
+                begin
+                    // Find the corresponding Sales Invoice Header
+                    if SalesInvHeader.Get(Rec."NumSerieFactura") then
+                        VerifactuMgmt.ExportSignedVerifactuXML(SalesInvHeader)
+                    else
+                        Message('Sales Invoice %1 not found.', Rec."NumSerieFactura");
+                end;
+            }
         }
     }
 
