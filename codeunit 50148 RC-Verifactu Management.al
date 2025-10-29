@@ -163,6 +163,24 @@ codeunit 50148 "RC-Verifactu Management"
         exit(DecimalString);
     end;
 
+    local procedure EscapeXmlText(InputText: Text): Text
+    var
+        EscapedText: Text;
+    begin
+        // Escape XML special characters to avoid encoding errors
+        EscapedText := InputText;
+        EscapedText := EscapedText.Replace('&', '&amp;');
+        EscapedText := EscapedText.Replace('<', '&lt;');
+        EscapedText := EscapedText.Replace('>', '&gt;');
+        EscapedText := EscapedText.Replace('"', '&quot;');
+        EscapedText := EscapedText.Replace('''', '&apos;');
+
+        // Remove or replace any non-printable characters that might cause encoding issues
+        EscapedText := DelChr(EscapedText, '=', DelChr(EscapedText, '=', ' !"#$%&''()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ'));
+
+        exit(EscapedText);
+    end;
+
     local procedure CalculateSHA256Hash(InputString: Text) HashValue: Text
     var
         CryptoMgmt: Codeunit "Cryptography Management";
@@ -180,5 +198,249 @@ codeunit 50148 "RC-Verifactu Management"
 
         // Generar el hash SHA-256 desde el stream UTF-8
         HashValue := CryptoMgmt.GenerateHash(InStr, 2);  // 2 = SHA256
+    end;
+
+    /// <summary>
+    /// Generate Verifactu XML document with XAdES digital signature
+    /// Similar to Java XAdES4j functionality
+    /// </summary>
+    procedure GenerateSignedVerifactuXML(SalesInvHeader: Record "Sales Invoice Header"; var SignedXMLText: Text): Boolean
+    var
+        XmlDoc: XmlDocument;
+        Success: Boolean;
+    begin
+        // Generate the base XML document
+        if not CreateVerifactuXMLDocumentSimple(SalesInvHeader, XmlDoc) then
+            exit(false);
+
+        // Apply XAdES digital signature
+        Success := ApplyXAdESSignatureSimple(XmlDoc, SignedXMLText);
+
+        exit(Success);
+    end;
+
+    local procedure CreateVerifactuXMLDocumentSimple(SalesInvHeader: Record "Sales Invoice Header"; var XmlDoc: XmlDocument): Boolean
+    var
+        XmlText: Text;
+        CompanyInfo: Record "Company Information";
+        Customer: Record Customer;
+        CuotaTotal: Decimal;
+        Timestamp: DateTime;
+        PreviousHashTestData: Record "RC-Hash Test Data";
+        PreviousHash: Text;
+        NamespaceUri: Text;
+    begin
+        CompanyInfo.Get();
+        SalesInvHeader.CalcFields(Amount, "Amount Including VAT");
+        CuotaTotal := SalesInvHeader."Amount Including VAT" - SalesInvHeader.Amount;
+        Timestamp := SalesInvHeader."RC-Verifactu Timestamp";
+        if Timestamp = 0DT then
+            Timestamp := CurrentDateTime;
+
+        // Get previous hash for chaining
+        PreviousHashTestData.Reset();
+        PreviousHashTestData.SetRange("Ult. huella utilizado", true);
+        if PreviousHashTestData.FindFirst() and (PreviousHashTestData."NumSerieFactura" <> SalesInvHeader."No.") then
+            PreviousHash := PreviousHashTestData."Huella"
+        else
+            PreviousHash := '';
+
+        Customer.Get(SalesInvHeader."Sell-to Customer No.");
+
+        // Build XML as text (simpler approach)
+        NamespaceUri := 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd';
+
+        XmlText := '<?xml version="1.0" encoding="UTF-8"?>' +
+                   '<RegistroAlta xmlns="' + NamespaceUri + '">' +
+                   '<IDVersion>1.0</IDVersion>' +
+                   '<IDFactura>' +
+                   '<IDEmisorFactura>' + EscapeXmlText(CompanyInfo."VAT Registration No.") + '</IDEmisorFactura>' +
+                   '<NumSerieFactura>' + EscapeXmlText(SalesInvHeader."No.") + '</NumSerieFactura>' +
+                   '<FechaExpedicionFactura>' + FormatDate(SalesInvHeader."Posting Date") + '</FechaExpedicionFactura>' +
+                   '</IDFactura>' +
+                   '<NombreRazonEmisor>' + EscapeXmlText(CompanyInfo.Name) + '</NombreRazonEmisor>' +
+                   '<Subsanacion>N</Subsanacion>' +
+                   '<RechazoPrevio>N</RechazoPrevio>' +
+                   '<TipoFactura>F1</TipoFactura>' +
+                   '<FechaOperacion>' + FormatDate(SalesInvHeader."Posting Date") + '</FechaOperacion>' +
+                   '<DescripcionOperacion>Venta de mercancias</DescripcionOperacion>' +
+                   '<Destinatarios>' +
+                   '<IDDestinatario>' +
+                   '<NombreRazonDestinatario>' + EscapeXmlText(Customer.Name) + '</NombreRazonDestinatario>' +
+                   '<NIFDestinatario>' + EscapeXmlText(Customer."VAT Registration No.") + '</NIFDestinatario>' +
+                   '</IDDestinatario>' +
+                   '</Destinatarios>' +
+                   BuildDesgloseXML(SalesInvHeader) +
+                   '<CuotaTotal>' + FormatDecimal(CuotaTotal) + '</CuotaTotal>' +
+                   '<ImporteTotal>' + FormatDecimal(SalesInvHeader."Amount Including VAT") + '</ImporteTotal>';
+
+        // Add chaining if previous hash exists
+        if PreviousHash <> '' then
+            XmlText += '<Encadenamiento>' +
+                       '<RegistroAnterior>' +
+                       '<IDEmisorFactura>' + EscapeXmlText(PreviousHashTestData."IDEmisorFactura") + '</IDEmisorFactura>' +
+                       '<NumSerieFactura>' + EscapeXmlText(PreviousHashTestData."NumSerieFactura") + '</NumSerieFactura>' +
+                       '<FechaExpedicionFactura>' + FormatDate(PreviousHashTestData."FechaExpedicionFactura") + '</FechaExpedicionFactura>' +
+                       '<Huella>' + PreviousHash + '</Huella>' +
+                       '</RegistroAnterior>' +
+                       '</Encadenamiento>';
+
+        XmlText += '<SistemaInformatico>' +
+                   '<NombreRazon>' + EscapeXmlText(CompanyInfo.Name) + '</NombreRazon>' +
+                   '<NIF>' + EscapeXmlText(CompanyInfo."VAT Registration No.") + '</NIF>' +
+                   '<NombreSistemaInformatico>Microsoft Dynamics 365 Business Central</NombreSistemaInformatico>' +
+                   '<IdSistemaInformatico>BC001</IdSistemaInformatico>' +
+                   '<Version>1.0</Version>' +
+                   '<NumeroInstalacion>001</NumeroInstalacion>' +
+                   '<TipoUsoPosibleSoloVerifactu>S</TipoUsoPosibleSoloVerifactu>' +
+                   '<TipoUsoPosibleMultiOT>N</TipoUsoPosibleMultiOT>' +
+                   '<IndicadorMultiplesOT>N</IndicadorMultiplesOT>' +
+                   '</SistemaInformatico>' +
+                   '<FechaHoraHusoGenRegistro>' + FormatDateTime(Timestamp) + '</FechaHoraHusoGenRegistro>' +
+                   '<TipoHuella>01</TipoHuella>' +
+                   '<Huella>' + SalesInvHeader."RC-Verifactu Hash" + '</Huella>' +
+                   '</RegistroAlta>';
+
+        // Parse the XML text into XmlDocument
+        if not XmlDocument.ReadFrom(XmlText, XmlDoc) then
+            exit(false);
+
+        exit(true);
+    end;
+
+    local procedure BuildDesgloseXML(SalesInvHeader: Record "Sales Invoice Header"): Text
+    var
+        SalesInvLine: Record "Sales Invoice Line";
+        BaseImponible: Decimal;
+        TipoImpositivo: Decimal;
+        CuotaImpuesto: Decimal;
+        DesgloseXML: Text;
+    begin
+        // Get VAT details from invoice lines
+        SalesInvLine.Reset();
+        SalesInvLine.SetRange("Document No.", SalesInvHeader."No.");
+        SalesInvLine.SetFilter("VAT %", '>0');
+
+        if SalesInvLine.FindSet() then begin
+            repeat
+                BaseImponible += SalesInvLine.Amount;
+                TipoImpositivo := SalesInvLine."VAT %";
+                CuotaImpuesto += SalesInvLine."Amount Including VAT" - SalesInvLine.Amount;
+            until SalesInvLine.Next() = 0;
+
+            DesgloseXML := '<Desglose>' +
+                          '<DetalleDesglose>' +
+                          '<Impuesto>01</Impuesto>' +
+                          '<ClaveRegimen>01</ClaveRegimen>' +
+                          '<CalificacionOperacion>S1</CalificacionOperacion>' +
+                          '<BaseImponible>' + FormatDecimal(BaseImponible) + '</BaseImponible>' +
+                          '<TipoImpositivo>' + FormatDecimal(TipoImpositivo) + '</TipoImpositivo>' +
+                          '<CuotaImpuesto>' + FormatDecimal(CuotaImpuesto) + '</CuotaImpuesto>' +
+                          '</DetalleDesglose>' +
+                          '</Desglose>';
+        end else begin
+            DesgloseXML := '<Desglose>' +
+                          '<DetalleDesglose>' +
+                          '<Impuesto>01</Impuesto>' +
+                          '<ClaveRegimen>01</ClaveRegimen>' +
+                          '<CalificacionOperacion>S1</CalificacionOperacion>' +
+                          '<BaseImponible>' + FormatDecimal(SalesInvHeader.Amount) + '</BaseImponible>' +
+                          '<TipoImpositivo>0.00</TipoImpositivo>' +
+                          '<CuotaImpuesto>0.00</CuotaImpuesto>' +
+                          '</DetalleDesglose>' +
+                          '</Desglose>';
+        end;
+
+        exit(DesgloseXML);
+    end;
+
+    local procedure ApplyXAdESSignatureSimple(var XmlDoc: XmlDocument; var SignedXMLText: Text): Boolean
+    var
+        UnsignedXML: Text;
+    begin
+        // Convert XML document to text
+        XmlDoc.WriteTo(UnsignedXML);
+
+        // In a real implementation, you would need to:
+        // 1. Get the digital certificate from Certificate Management
+        // 2. Apply XAdES-EPES signature using external library or service
+        // 3. For now, we'll simulate this process
+
+        // TODO: Implement actual XAdES digital signature
+        // This would require integration with:
+        // - Digital certificate store (Windows Certificate Store or PKCS#12 files)
+        // - XAdES signature library (external .NET library or web service)
+        // - Timestamp authority (TSA) for qualified timestamps
+
+        // For demonstration, return the unsigned XML with signature placeholder
+        SignedXMLText := UnsignedXML;
+
+        // Add signature placeholder (in real implementation, this would be the actual signature)
+        SignedXMLText := SignedXMLText.Replace('</RegistroAlta>', GetXAdESSignaturePlaceholder() + '</RegistroAlta>');
+
+        exit(true);
+    end;
+
+    local procedure GetXAdESSignaturePlaceholder(): Text
+    var
+        SigningTime: Text;
+    begin
+        // Format signing time properly to avoid encoding issues
+        SigningTime := Format(CurrentDateTime, 0, '<Year4>-<Month,2>-<Day,2>T<Hours24,2>:<Minutes,2>:<Seconds,2>Z');
+
+        // This is a placeholder for the actual XAdES signature structure
+        // In a real implementation, this would be generated by the signing process
+        exit('<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">' +
+             '<ds:SignedInfo>' +
+             '<ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>' +
+             '<ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/>' +
+             '<ds:Reference URI="">' +
+             '<ds:Transforms>' +
+             '<ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>' +
+             '</ds:Transforms>' +
+             '<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>' +
+             '<ds:DigestValue>PLACEHOLDER_DIGEST_VALUE</ds:DigestValue>' +
+             '</ds:Reference>' +
+             '</ds:SignedInfo>' +
+             '<ds:SignatureValue>PLACEHOLDER_SIGNATURE_VALUE</ds:SignatureValue>' +
+             '<ds:KeyInfo>' +
+             '<ds:X509Data>' +
+             '<ds:X509Certificate>PLACEHOLDER_CERTIFICATE</ds:X509Certificate>' +
+             '</ds:X509Data>' +
+             '</ds:KeyInfo>' +
+             '<xades:QualifyingProperties xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Target="#signature">' +
+             '<xades:SignedProperties>' +
+             '<xades:SignedSignatureProperties>' +
+             '<xades:SigningTime>' + SigningTime + '</xades:SigningTime>' +
+             '</xades:SignedSignatureProperties>' +
+             '</xades:SignedProperties>' +
+             '</xades:QualifyingProperties>' +
+             '</ds:Signature>');
+    end;
+
+    /// <summary>
+    /// Export signed Verifactu XML to file
+    /// </summary>
+    procedure ExportSignedVerifactuXML(SalesInvHeader: Record "Sales Invoice Header")
+    var
+        SignedXML: Text;
+        TempBlob: Codeunit "Temp Blob";
+        OutStr: OutStream;
+        InStr: InStream;
+        FileName: Text;
+    begin
+        if not GenerateSignedVerifactuXML(SalesInvHeader, SignedXML) then begin
+            Message('Error generating signed XML for invoice %1', SalesInvHeader."No.");
+            exit;
+        end;
+
+        // Create file for download
+        TempBlob.CreateOutStream(OutStr, TextEncoding::UTF8);
+        OutStr.WriteText(SignedXML);
+        TempBlob.CreateInStream(InStr, TextEncoding::UTF8);
+
+        FileName := StrSubstNo('Verifactu_%1_%2.xml', SalesInvHeader."No.", Format(Today, 0, '<Year4><Month,2><Day,2>'));
+
+        DownloadFromStream(InStr, 'Export Verifactu XML', '', 'XML Files (*.xml)|*.xml', FileName);
     end;
 }
