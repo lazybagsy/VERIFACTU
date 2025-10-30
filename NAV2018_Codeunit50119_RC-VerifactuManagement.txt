@@ -449,7 +449,7 @@ OBJECT Codeunit 50119 RC-Verifactu Management
       END;
 
       // Crear archivo para exportar
-      FileName := STRSUBSTNO('Verifactu_%1_%2.xml',SalesInvHeader."No.",FORMAT(TODAY,0,'<Year4><Month,2><Day,2>'));
+      FileName := STRSUBSTNO('Verifactu_%1_%2.xml',SalesInvHeader."No.",FORMAT(CURRENTDATETIME,0,'<Year4><Month,2><Day,2>_<Hours24,2><Minutes,2><Seconds,2>'));
       FilePath := TEMPORARYPATH + FileName;
 
       TempFile.CREATE(FilePath);

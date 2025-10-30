@@ -443,7 +443,7 @@ codeunit 50148 "RC-Verifactu Management"
         OutStr.WriteText(SignedXML);
         TempBlob.CreateInStream(InStr, TextEncoding::UTF8);
 
-        FileName := StrSubstNo('Verifactu_%1_%2.xml', SalesInvHeader."No.", Format(Today, 0, '<Year4><Month,2><Day,2>'));
+        FileName := StrSubstNo('Verifactu_%1_%2.xml', SalesInvHeader."No.", Format(CurrentDateTime, 0, '<Year4><Month,2><Day,2>_<Hours24,2><Minutes,2><Seconds,2>'));
 
         DownloadFromStream(InStr, 'Exportar XML Verifactu', '', 'Archivos XML (*.xml)|*.xml', FileName);
     end;
