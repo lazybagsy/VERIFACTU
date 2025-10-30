@@ -237,10 +237,12 @@ codeunit 50148 "RC-Verifactu Management"
         if Timestamp = 0DT then
             Timestamp := CurrentDateTime;
 
-        // Obtener hash anterior para encadenamiento
+        // Obtener hash anterior para encadenamiento basado en secuencia temporal
         PreviousHashTestData.Reset();
-        PreviousHashTestData.SetRange("Ult. huella utilizado", true);
-        if PreviousHashTestData.FindFirst() and (PreviousHashTestData."NumSerieFactura" <> SalesInvHeader."No.") then
+        PreviousHashTestData.SetCurrentKey("FechaHoraHusoGenRegistro");
+        PreviousHashTestData.SetFilter("FechaHoraHusoGenRegistro", '<%1', Timestamp);
+        PreviousHashTestData.SetFilter("NumSerieFactura", '<>%1', SalesInvHeader."No.");
+        if PreviousHashTestData.FindLast() then
             PreviousHash := PreviousHashTestData."Huella"
         else
             PreviousHash := '';

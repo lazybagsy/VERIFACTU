@@ -250,10 +250,12 @@ OBJECT Codeunit 50119 RC-Verifactu Management
       IF Timestamp = 0DT THEN
         Timestamp := CURRENTDATETIME;
 
-      // Obtener hash anterior para encadenamiento
+      // Obtener hash anterior para encadenamiento basado en secuencia temporal
       PreviousHashTestData.RESET;
-      PreviousHashTestData.SETRANGE("Ult. huella utilizado",TRUE);
-      IF PreviousHashTestData.FINDFIRST AND (PreviousHashTestData.NumSerieFactura <> SalesInvHeader."No.") THEN
+      PreviousHashTestData.SETCURRENTKEY(FechaHoraHusoGenRegistro);
+      PreviousHashTestData.SETFILTER(FechaHoraHusoGenRegistro,'<%1',Timestamp);
+      PreviousHashTestData.SETFILTER(NumSerieFactura,'<>%1',SalesInvHeader."No.");
+      IF PreviousHashTestData.FINDLAST THEN
         PreviousHash := PreviousHashTestData.Huella
       ELSE
         PreviousHash := '';
