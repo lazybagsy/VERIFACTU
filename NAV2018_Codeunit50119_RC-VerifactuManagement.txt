@@ -47,7 +47,7 @@ OBJECT Codeunit 50119 RC-Verifactu Management
       CuotaTotal@1000000004 : Decimal;
       Timestamp@1000000005 : DateTime;
     BEGIN
-      // Create timestamp once to use consistently
+      // Crear marca de tiempo unica para usar de forma consistente
       Timestamp := CURRENTDATETIME;
 
       HashString := BuildHashString(SalesInvHeader,Timestamp,CorrectedInvoice);
@@ -55,14 +55,14 @@ OBJECT Codeunit 50119 RC-Verifactu Management
       SalesInvHeader."RC-Verifactu Timestamp" := Timestamp;
       SalesInvHeader.MODIFY;
 
-      // Also update table 50138 with the invoice data
+      // Tambien actualizar tabla 50138 con los datos de la factura
       CompanyInfo.GET;
 
-      // Calculate CalcFields for Amount and Amount Including VAT
+      // Calcular CalcFields para Importe e Importe IVA incluido
       SalesInvHeader.CALCFIELDS(Amount,"Amount Including VAT");
       CuotaTotal := SalesInvHeader."Amount Including VAT" - SalesInvHeader.Amount;
 
-      // First, deactivate any previous record with the boolean flag set
+      // Primero, desactivar cualquier registro anterior con el indicador booleano establecido
       PreviousHashTestData.RESET;
       PreviousHashTestData.SETRANGE("Ult. huella utilizado",TRUE);
       IF PreviousHashTestData.FINDFIRST THEN BEGIN
@@ -70,7 +70,7 @@ OBJECT Codeunit 50119 RC-Verifactu Management
         PreviousHashTestData.MODIFY(TRUE);
       END;
 
-      // Now insert the new record with a clean variable
+      // Ahora insertar el nuevo registro con una variable limpia
       HashTestData.INIT;
       HashTestData.IDEmisorFactura := CompanyInfo."VAT Registration No.";
       HashTestData.NumSerieFactura := SalesInvHeader."No.";
@@ -83,7 +83,7 @@ OBJECT Codeunit 50119 RC-Verifactu Management
       HashTestData.ImporteTotal := SalesInvHeader."Amount Including VAT";
       HashTestData.Huella := SalesInvHeader."RC-Verifactu Hash";
       HashTestData.FechaHoraHusoGenRegistro := Timestamp;
-      HashTestData."Ult. huella utilizado" := TRUE;  // Set to true on insert
+      HashTestData."Ult. huella utilizado" := TRUE;  // Establecer a true en insercion
       HashTestData.INSERT(TRUE);
     END;
 
@@ -96,21 +96,21 @@ OBJECT Codeunit 50119 RC-Verifactu Management
     BEGIN
       CompanyInfo.GET;
 
-      // Calculate CalcFields for Amount and Amount Including VAT
+      // Calcular CalcFields para Importe e Importe IVA incluido
       SalesInvHeader.CALCFIELDS(Amount,"Amount Including VAT");
 
       CuotaTotal := SalesInvHeader."Amount Including VAT" - SalesInvHeader.Amount;
 
-      // Set TipoFactura based on document type
+      // Establecer TipoFactura segun tipo de documento
       IF CorrectedInvoice THEN
-        TipoFactura := 'R1' // Corrected invoice
+        TipoFactura := 'R1' // Factura rectificativa
       ELSE
-        TipoFactura := 'F1'; // Default to standard invoice
+        TipoFactura := 'F1'; // Valor por defecto para factura estándar
 
-      // Only check for previous invoice hash chaining if it's not a corrected invoice
+      // Solo verificar encadenamiento de hash de factura anterior si no es factura rectificativa
       IF NOT CorrectedInvoice THEN BEGIN
-        // Check if there's a previous invoice with a hash (for hash chaining)
-        // Find previous invoice based on No. Series ordering
+        // Verificar si existe una factura anterior con hash (para encadenamiento de hash)
+        // Encontrar factura anterior basada en ordenacion de No Serie
         PreviousInvoice.RESET;
         PreviousInvoice.SETCURRENTKEY("No. Series","Posting Date");
         PreviousInvoice.SETRANGE("No. Series",SalesInvHeader."No. Series");
@@ -137,7 +137,7 @@ OBJECT Codeunit 50119 RC-Verifactu Management
                         '&Huella=' +
                         '&FechaHoraHusoGenRegistro=' + FormatDateTime(Timestamp);
       END ELSE BEGIN
-        // For corrected invoices, use current invoice hash
+        // Para facturas rectificativas, usar hash de factura actual
         HashString := '&IDEmisorFacturaAnulada=' + CompanyInfo."VAT Registration No." +
                       '&NumSerieFacturaAnulada=' + SalesInvHeader."No." +
                       '&FechaExpedicionFacturaAnulada=' + FormatDate(SalesInvHeader."Posting Date") +
@@ -171,41 +171,41 @@ OBJECT Codeunit 50119 RC-Verifactu Management
       EscapedText@1000000001 : Text;
       Position@1000000002 : Integer;
     BEGIN
-      // Escape XML special characters to avoid encoding errors
-      // In NAV 2018, we need to use string replacement instead of CONVERTSTR for different length strings
+      // Escapar caracteres especiales XML para evitar errores de codificacion
+      // En NAV 2018, necesitamos usar reemplazo de cadenas en lugar de CONVERTSTR para cadenas de longitud diferente
       EscapedText := InputText;
       
-      // Replace & first (must be done first to avoid double-escaping)
+      // Reemplazar & primero (debe hacerse primero para evitar doble escape)
       WHILE STRPOS(EscapedText,'&') > 0 DO BEGIN
         Position := STRPOS(EscapedText,'&');
         EscapedText := COPYSTR(EscapedText,1,Position-1) + '&amp;' + COPYSTR(EscapedText,Position+1);
       END;
       
-      // Replace <
+      // Reemplazar <
       WHILE STRPOS(EscapedText,'<') > 0 DO BEGIN
         Position := STRPOS(EscapedText,'<');
         EscapedText := COPYSTR(EscapedText,1,Position-1) + '&lt;' + COPYSTR(EscapedText,Position+1);
       END;
       
-      // Replace >
+      // Reemplazar >
       WHILE STRPOS(EscapedText,'>') > 0 DO BEGIN
         Position := STRPOS(EscapedText,'>');
         EscapedText := COPYSTR(EscapedText,1,Position-1) + '&gt;' + COPYSTR(EscapedText,Position+1);
       END;
       
-      // Replace "
+      // Reemplazar "
       WHILE STRPOS(EscapedText,'"') > 0 DO BEGIN
         Position := STRPOS(EscapedText,'"');
         EscapedText := COPYSTR(EscapedText,1,Position-1) + '&quot;' + COPYSTR(EscapedText,Position+1);
       END;
       
-      // Replace ' (single quote)
+      // Reemplazar ' (comilla simple)
       WHILE STRPOS(EscapedText,'''') > 0 DO BEGIN
         Position := STRPOS(EscapedText,'''');
         EscapedText := COPYSTR(EscapedText,1,Position-1) + '&apos;' + COPYSTR(EscapedText,Position+1);
       END;
       
-      // Remove any non-printable characters that might cause encoding issues
+      // Eliminar cualquier caracter no imprimible que pueda causar problemas de codificacion
       EscapedText := DELCHR(EscapedText,'=',DELCHR(EscapedText,'=',' !"#$%&''()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~'));
       
       EXIT(EscapedText);
@@ -223,11 +223,11 @@ OBJECT Codeunit 50119 RC-Verifactu Management
       XmlText@1000000002 : Text;
       Success@1000000003 : Boolean;
     BEGIN
-      // Generate the base XML document
+      // Generar el documento XML base
       IF NOT CreateVerifactuXMLDocument(SalesInvHeader,XmlText) THEN
         EXIT(FALSE);
 
-      // Apply XAdES digital signature
+      // Aplicar firma digital XAdES
       Success := ApplyXAdESSignature(XmlText,SignedXMLText);
 
       EXIT(Success);
@@ -250,7 +250,7 @@ OBJECT Codeunit 50119 RC-Verifactu Management
       IF Timestamp = 0DT THEN
         Timestamp := CURRENTDATETIME;
 
-      // Get previous hash for chaining
+      // Obtener hash anterior para encadenamiento
       PreviousHashTestData.RESET;
       PreviousHashTestData.SETRANGE("Ult. huella utilizado",TRUE);
       IF PreviousHashTestData.FINDFIRST AND (PreviousHashTestData.NumSerieFactura <> SalesInvHeader."No.") THEN
@@ -260,59 +260,63 @@ OBJECT Codeunit 50119 RC-Verifactu Management
 
       Customer.GET(SalesInvHeader."Sell-to Customer No.");
 
-      // Build XML as text (simpler approach)
+      // Construir XML como texto (enfoque mas simple)
       NamespaceUri := 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd';
 
       XmlText := '<?xml version="1.0" encoding="UTF-8"?>' +
-                 '<RegistroAlta xmlns="' + NamespaceUri + '">' +
-                 '<IDVersion>1.0</IDVersion>' +
-                 '<IDFactura>' +
-                 '<IDEmisorFactura>' + EscapeXmlText(CompanyInfo."VAT Registration No.") + '</IDEmisorFactura>' +
-                 '<NumSerieFactura>' + EscapeXmlText(SalesInvHeader."No.") + '</NumSerieFactura>' +
-                 '<FechaExpedicionFactura>' + FormatDate(SalesInvHeader."Posting Date") + '</FechaExpedicionFactura>' +
-                 '</IDFactura>' +
-                 '<NombreRazonEmisor>' + EscapeXmlText(CompanyInfo.Name) + '</NombreRazonEmisor>' +
-                 '<Subsanacion>N</Subsanacion>' +
-                 '<RechazoPrevio>N</RechazoPrevio>' +
-                 '<TipoFactura>F1</TipoFactura>' +
-                 '<FechaOperacion>' + FormatDate(SalesInvHeader."Posting Date") + '</FechaOperacion>' +
-                 '<DescripcionOperacion>Venta de mercancias</DescripcionOperacion>' +
-                 '<Destinatarios>' +
-                 '<IDDestinatario>' +
-                 '<NombreRazonDestinatario>' + EscapeXmlText(Customer.Name) + '</NombreRazonDestinatario>' +
-                 '<NIFDestinatario>' + EscapeXmlText(Customer."VAT Registration No.") + '</NIFDestinatario>' +
-                 '</IDDestinatario>' +
-                 '</Destinatarios>' +
+                 '<sum1:RegistroAlta xmlns:sum1="' + NamespaceUri + '">' +
+                 '<sum1:IDVersion>1.0</sum1:IDVersion>' +
+                 '<sum1:IDFactura>' +
+                 '<sum1:IDEmisorFactura>' + EscapeXmlText(CompanyInfo."VAT Registration No.") + '</sum1:IDEmisorFactura>' +
+                 '<sum1:NumSerieFactura>' + EscapeXmlText(SalesInvHeader."No.") + '</sum1:NumSerieFactura>' +
+                 '<sum1:FechaExpedicionFactura>' + FormatDate(SalesInvHeader."Posting Date") + '</sum1:FechaExpedicionFactura>' +
+                 '</sum1:IDFactura>' +
+                 '<sum1:NombreRazonEmisor>' + EscapeXmlText(CompanyInfo.Name) + '</sum1:NombreRazonEmisor>' +
+                 '<sum1:Subsanacion>N</sum1:Subsanacion>' +
+                 '<sum1:RechazoPrevio>N</sum1:RechazoPrevio>' +
+                 '<sum1:TipoFactura>F1</sum1:TipoFactura>' +
+                 '<sum1:TipoRectificativa/>' +
+                 '<sum1:FacturasRectificadas/>' +
+                 '<sum1:FacturasSustituidas/>' +
+                 '<sum1:ImporteRectificacion/>' +
+                 '<sum1:FechaOperacion>' + FormatDate(SalesInvHeader."Posting Date") + '</sum1:FechaOperacion>' +
+                 '<sum1:DescripcionOperacion>Venta de mercancias</sum1:DescripcionOperacion>' +
+                 '<sum1:Destinatarios>' +
+                 '<sum1:IDDestinatario>' +
+                 '<sum1:NombreRazonDestinatario>' + EscapeXmlText(Customer.Name) + '</sum1:NombreRazonDestinatario>' +
+                 '<sum1:NIFDestinatario>' + EscapeXmlText(Customer."VAT Registration No.") + '</sum1:NIFDestinatario>' +
+                 '</sum1:IDDestinatario>' +
+                 '</sum1:Destinatarios>' +
                  BuildDesgloseXML(SalesInvHeader) +
-                 '<CuotaTotal>' + FormatDecimal(CuotaTotal) + '</CuotaTotal>' +
-                 '<ImporteTotal>' + FormatDecimal(SalesInvHeader."Amount Including VAT") + '</ImporteTotal>';
+                 '<sum1:CuotaTotal>' + FormatDecimal(CuotaTotal) + '</sum1:CuotaTotal>' +
+                 '<sum1:ImporteTotal>' + FormatDecimal(SalesInvHeader."Amount Including VAT") + '</sum1:ImporteTotal>';
 
-      // Add chaining if previous hash exists
+      // Agregar encadenamiento si existe hash anterior
       IF PreviousHash <> '' THEN
-        XmlText := XmlText + '<Encadenamiento>' +
-                   '<RegistroAnterior>' +
-                   '<IDEmisorFactura>' + EscapeXmlText(PreviousHashTestData.IDEmisorFactura) + '</IDEmisorFactura>' +
-                   '<NumSerieFactura>' + EscapeXmlText(PreviousHashTestData.NumSerieFactura) + '</NumSerieFactura>' +
-                   '<FechaExpedicionFactura>' + FormatDate(PreviousHashTestData.FechaExpedicionFactura) + '</FechaExpedicionFactura>' +
-                   '<Huella>' + PreviousHash + '</Huella>' +
-                   '</RegistroAnterior>' +
-                   '</Encadenamiento>';
+        XmlText := XmlText + '<sum1:Encadenamiento>' +
+                   '<sum1:RegistroAnterior>' +
+                   '<sum1:IDEmisorFactura>' + EscapeXmlText(PreviousHashTestData.IDEmisorFactura) + '</sum1:IDEmisorFactura>' +
+                   '<sum1:NumSerieFactura>' + EscapeXmlText(PreviousHashTestData.NumSerieFactura) + '</sum1:NumSerieFactura>' +
+                   '<sum1:FechaExpedicionFactura>' + FormatDate(PreviousHashTestData.FechaExpedicionFactura) + '</sum1:FechaExpedicionFactura>' +
+                   '<sum1:Huella>' + PreviousHash + '</sum1:Huella>' +
+                   '</sum1:RegistroAnterior>' +
+                   '</sum1:Encadenamiento>';
 
-      XmlText := XmlText + '<SistemaInformatico>' +
-                 '<NombreRazon>' + EscapeXmlText(CompanyInfo.Name) + '</NombreRazon>' +
-                 '<NIF>' + EscapeXmlText(CompanyInfo."VAT Registration No.") + '</NIF>' +
-                 '<NombreSistemaInformatico>Microsoft Dynamics NAV 2018</NombreSistemaInformatico>' +
-                 '<IdSistemaInformatico>NAV001</IdSistemaInformatico>' +
-                 '<Version>1.0</Version>' +
-                 '<NumeroInstalacion>001</NumeroInstalacion>' +
-                 '<TipoUsoPosibleSoloVerifactu>S</TipoUsoPosibleSoloVerifactu>' +
-                 '<TipoUsoPosibleMultiOT>N</TipoUsoPosibleMultiOT>' +
-                 '<IndicadorMultiplesOT>N</IndicadorMultiplesOT>' +
-                 '</SistemaInformatico>' +
-                 '<FechaHoraHusoGenRegistro>' + FormatDateTime(Timestamp) + '</FechaHoraHusoGenRegistro>' +
-                 '<TipoHuella>01</TipoHuella>' +
-                 '<Huella>' + SalesInvHeader."RC-Verifactu Hash" + '</Huella>' +
-                 '</RegistroAlta>';
+      XmlText := XmlText + '<sum1:SistemaInformatico>' +
+                 '<sum1:NombreRazon>' + EscapeXmlText(CompanyInfo.Name) + '</sum1:NombreRazon>' +
+                 '<sum1:NIF>' + EscapeXmlText(CompanyInfo."VAT Registration No.") + '</sum1:NIF>' +
+                 '<sum1:NombreSistemaInformatico>Microsoft Dynamics NAV 2018</sum1:NombreSistemaInformatico>' +
+                 '<sum1:IdSistemaInformatico>NAV001</sum1:IdSistemaInformatico>' +
+                 '<sum1:Version>1.0</sum1:Version>' +
+                 '<sum1:NumeroInstalacion>001</sum1:NumeroInstalacion>' +
+                 '<sum1:TipoUsoPosibleSoloVerifactu>S</sum1:TipoUsoPosibleSoloVerifactu>' +
+                 '<sum1:TipoUsoPosibleMultiOT>N</sum1:TipoUsoPosibleMultiOT>' +
+                 '<sum1:IndicadorMultiplesOT>N</sum1:IndicadorMultiplesOT>' +
+                 '</sum1:SistemaInformatico>' +
+                 '<sum1:FechaHoraHusoGenRegistro>' + FormatDateTime(Timestamp) + '</sum1:FechaHoraHusoGenRegistro>' +
+                 '<sum1:TipoHuella>01</sum1:TipoHuella>' +
+                 '<sum1:Huella>' + SalesInvHeader."RC-Verifactu Hash" + '</sum1:Huella>' +
+                 '</sum1:RegistroAlta>';
 
       EXIT(TRUE);
     END;
@@ -325,7 +329,7 @@ OBJECT Codeunit 50119 RC-Verifactu Management
       CuotaImpuesto@1000000004 : Decimal;
       DesgloseXML@1000000005 : Text;
     BEGIN
-      // Get VAT details from invoice lines
+      // Obtener detalles de IVA de las lineas de factura
       SalesInvLine.RESET;
       SalesInvLine.SETRANGE("Document No.",SalesInvHeader."No.");
       SalesInvLine.SETFILTER("VAT %",'>0');
@@ -337,27 +341,27 @@ OBJECT Codeunit 50119 RC-Verifactu Management
           CuotaImpuesto := CuotaImpuesto + (SalesInvLine."Amount Including VAT" - SalesInvLine.Amount);
         UNTIL SalesInvLine.NEXT = 0;
 
-        DesgloseXML := '<Desglose>' +
-                      '<DetalleDesglose>' +
-                      '<Impuesto>01</Impuesto>' +
-                      '<ClaveRegimen>01</ClaveRegimen>' +
-                      '<CalificacionOperacion>S1</CalificacionOperacion>' +
-                      '<BaseImponible>' + FormatDecimal(BaseImponible) + '</BaseImponible>' +
-                      '<TipoImpositivo>' + FormatDecimal(TipoImpositivo) + '</TipoImpositivo>' +
-                      '<CuotaImpuesto>' + FormatDecimal(CuotaImpuesto) + '</CuotaImpuesto>' +
-                      '</DetalleDesglose>' +
-                      '</Desglose>';
+        DesgloseXML := '<sum1:Desglose>' +
+                      '<sum1:DetalleDesglose>' +
+                      '<sum1:Impuesto>01</sum1:Impuesto>' +
+                      '<sum1:ClaveRegimen>01</sum1:ClaveRegimen>' +
+                      '<sum1:CalificacionOperacion>S1</sum1:CalificacionOperacion>' +
+                      '<sum1:TipoImpositivo>' + FormatDecimal(TipoImpositivo) + '</sum1:TipoImpositivo>' +
+                      '<sum1:BaseImponibleOImporteSujeto>' + FormatDecimal(BaseImponible) + '</sum1:BaseImponibleOImporteSujeto>' +
+                      '<sum1:CuotaRepercutida>' + FormatDecimal(CuotaImpuesto) + '</sum1:CuotaRepercutida>' +
+                      '</sum1:DetalleDesglose>' +
+                      '</sum1:Desglose>';
       END ELSE BEGIN
-        DesgloseXML := '<Desglose>' +
-                      '<DetalleDesglose>' +
-                      '<Impuesto>01</Impuesto>' +
-                      '<ClaveRegimen>01</ClaveRegimen>' +
-                      '<CalificacionOperacion>S1</CalificacionOperacion>' +
-                      '<BaseImponible>' + FormatDecimal(SalesInvHeader.Amount) + '</BaseImponible>' +
-                      '<TipoImpositivo>0.00</TipoImpositivo>' +
-                      '<CuotaImpuesto>0.00</CuotaImpuesto>' +
-                      '</DetalleDesglose>' +
-                      '</Desglose>';
+        DesgloseXML := '<sum1:Desglose>' +
+                      '<sum1:DetalleDesglose>' +
+                      '<sum1:Impuesto>01</sum1:Impuesto>' +
+                      '<sum1:ClaveRegimen>01</sum1:ClaveRegimen>' +
+                      '<sum1:CalificacionOperacion>S1</sum1:CalificacionOperacion>' +
+                      '<sum1:TipoImpositivo>0.00</sum1:TipoImpositivo>' +
+                      '<sum1:BaseImponibleOImporteSujeto>' + FormatDecimal(SalesInvHeader.Amount) + '</sum1:BaseImponibleOImporteSujeto>' +
+                      '<sum1:CuotaRepercutida>0.00</sum1:CuotaRepercutida>' +
+                      '</sum1:DetalleDesglose>' +
+                      '</sum1:Desglose>';
       END;
 
       EXIT(DesgloseXML);
@@ -369,22 +373,22 @@ OBJECT Codeunit 50119 RC-Verifactu Management
       CloseTag@1000000003 : Text;
       Position@1000000004 : Integer;
     BEGIN
-      // In a real implementation, you would need to:
-      // 1. Get the digital certificate from Certificate Management
-      // 2. Apply XAdES-EPES signature using external library or service
-      // 3. For now, we'll simulate this process
+      // En una implementacion real, necesitaria:
+      // 1. Obtener el certificado digital de Gestion de Certificados
+      // 2. Aplicar firma XAdES-EPES usando biblioteca o servicio externo
+      // 3. Por ahora, simularemos este proceso
 
-      // TODO: Implement actual XAdES digital signature
-      // This would require integration with:
-      // - Digital certificate store (Windows Certificate Store or PKCS#12 files)
-      // - XAdES signature library (external .NET library or web service)
-      // - Timestamp authority (TSA) for qualified timestamps
+      // TODO: Implementar firma digital XAdES real
+      // Esto requeriria integracion con:
+      // - Almacen de certificados digitales (Windows Certificate Store o archivos PKCS#12)
+      // - Biblioteca de firma XAdES (biblioteca .NET externa o servicio web)
+      // - Autoridad de sellado de tiempo (TSA) para sellos de tiempo cualificados
 
-      // For demonstration, return the unsigned XML with signature placeholder
+      // Para demostracion, devolver el XML sin firmar con marcador de posicion de firma
       SignedXMLText := UnsignedXML;
 
-      // Add signature placeholder before closing tag
-      CloseTag := '</RegistroAlta>';
+      // Agregar marcador de posicion de firma antes de etiqueta de cierre
+      CloseTag := '</sum1:RegistroAlta>';
       SignaturePlaceholder := GetXAdESSignaturePlaceholder;
       Position := STRPOS(SignedXMLText,CloseTag);
       IF Position > 0 THEN BEGIN
@@ -398,11 +402,11 @@ OBJECT Codeunit 50119 RC-Verifactu Management
     VAR
       SigningTime@1000000000 : Text;
     BEGIN
-      // Format signing time properly to avoid encoding issues
+      // Formatear tiempo de firma correctamente para evitar problemas de codificacion
       SigningTime := FORMAT(CURRENTDATETIME,0,'<Year4>-<Month,2>-<Day,2>T<Hours24,2>:<Minutes,2>:<Seconds,2>Z');
       
-      // This is a placeholder for the actual XAdES signature structure
-      // In a real implementation, this would be generated by the signing process
+      // Este es un marcador de posicion para la estructura de firma XAdES real
+      // En una implementacion real, esto seria generado por el proceso de firma
       EXIT('<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">' +
            '<ds:SignedInfo>' +
            '<ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>' +
@@ -440,11 +444,11 @@ OBJECT Codeunit 50119 RC-Verifactu Management
       OutStr@1000000005 : OutStream;
     BEGIN
       IF NOT GenerateSignedVerifactuXML(SalesInvHeader,SignedXML) THEN BEGIN
-        MESSAGE('Error generating signed XML for invoice %1',SalesInvHeader."No.");
+        MESSAGE('Error al generar XML firmado para factura %1',SalesInvHeader."No.");
         EXIT;
       END;
 
-      // Create file for export
+      // Crear archivo para exportar
       FileName := STRSUBSTNO('Verifactu_%1_%2.xml',SalesInvHeader."No.",FORMAT(TODAY,0,'<Year4><Month,2><Day,2>'));
       FilePath := TEMPORARYPATH + FileName;
 
@@ -453,8 +457,8 @@ OBJECT Codeunit 50119 RC-Verifactu Management
       OutStr.WRITETEXT(SignedXML);
       TempFile.CLOSE;
 
-      // In NAV 2018, we would typically use DOWNLOAD or show the file path
-      MESSAGE('Signed XML file created: %1',FilePath);
+      // En NAV 2018, normalmente usariamos DOWNLOAD o mostrar la ruta del archivo
+      MESSAGE('Archivo XML firmado creado: %1',FilePath);
       HYPERLINK(FilePath);
     END;
 
