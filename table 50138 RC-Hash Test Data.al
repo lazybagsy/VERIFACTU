@@ -58,6 +58,9 @@ table 50138 "RC-Hash Test Data"
         {
             Clustered = true;
         }
+        key(Key2; "FechaHoraHusoGenRegistro")
+        {
+        }
     }
 
     trigger OnInsert()

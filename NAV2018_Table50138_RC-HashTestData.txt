@@ -28,6 +28,7 @@ OBJECT Table 50138 RC-Hash Test Data
   KEYS
   {
     {    ;Entry No.                               ;Clustered=Yes }
+    {    ;FechaHoraHusoGenRegistro                 }
   }
   FIELDGROUPS
   {
