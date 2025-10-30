@@ -54,6 +54,11 @@ Convert the provided AL object(s) to CAL format compatible with Navision 2018. C
 * **Code Conversion:**
   - Convert procedures to CAL LOCAL PROCEDURE format
   - Use @ symbol for local variable declarations: `Variable@1000000000 : Type`
+  - **Variable IDs must be unique across ALL variables in a procedure:**
+    - Parameter variables must have unique IDs
+    - Local variables must have unique IDs
+    - Parameter IDs cannot be the same as local variable IDs
+    - Example: If parameter uses @1000000000, first local variable must use @1000000001
   - Convert Rec. references to direct field references in pages
   - Convert AL method calls to CAL syntax (UPPERCASE for system functions)
   - Convert string concatenation and formatting functions
@@ -116,4 +121,5 @@ Convert the provided AL object(s) to CAL format compatible with Navision 2018. C
 - Use consistent control ID numbering (1000000000+)
 - Test that generated files can be imported without errors
 - Use True/False for boolean properties, not Yes/No
+- All comments and Messages in Spanish without accents.
 - **Remember: Table triggers (OnInsert, OnModify, OnDelete, OnRename) go in PROPERTIES, not CODE**
